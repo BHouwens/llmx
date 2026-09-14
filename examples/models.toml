@@ -1,0 +1,152 @@
+# llmx model profiles — copy to ~/.config/llmx/models.toml and edit.
+#
+# Everything below is an EXAMPLE. The model repository names, ports and
+# command-line flags change often; check them against the runtime you have
+# installed rather than trusting this file.
+#
+# Override the config location with:  LLMX_CONFIG=/path/to/models.toml
+
+[settings]
+# The agent llmx launches. This is codex-local, which is a different program
+# from upstream `codex` and keeps its own config in ~/.codex-local.
+codex_bin = "codex-local"
+
+# Seconds to wait for an endpoint to answer GET <url>/models. A large local
+# model loading from disk can need much longer; override per profile with
+# runtime.ready_timeout_secs.
+health_timeout_secs = 180
+
+# How generated settings reach codex-local:
+#   "overrides"  (default) pass them as `-c key=value`. Your own
+#                ~/.codex-local/config.toml still loads, so MCP servers,
+#                history and sessions keep working.
+#   "codex_home" point CODEX_HOME at a directory llmx owns. Fully isolated:
+#                your config.toml, MCP servers and history do NOT load.
+isolation = "overrides"
+
+
+# --------------------------------------------------------------------------
+# Example A — a local MLX server llmx starts and stops for you.
+# --------------------------------------------------------------------------
+[[models]]
+id = "qwen38-27b"
+name = "Qwen3.8 27B"
+model_id = "Qwen3.8-27B"      # omit to discover from GET /v1/models
+backend = "local"
+label = "MLX"                  # short tag in the picker; defaults to LOCAL
+context_window = 131072
+max_output_tokens = 32768
+
+[models.endpoint]
+url = "http://127.0.0.1:8000/v1"
+
+[models.runtime]
+command = "mlx_lm.server"
+args = ["--model", "mlx-community/Qwen3.8-27B-6bit", "--port", "8000"]
+# ready_timeout_secs = 600     # weights take a while on first load
+# env = { HF_HUB_OFFLINE = "1" }
+# cwd = "/Users/you/models"
+
+[models.resources]
+# Advisory only — llmx warns, it never blocks a launch.
+estimated_ram_gb = 22
+recommended_ram_gb = 32
+
+
+# --------------------------------------------------------------------------
+# Example B — a second local runtime on its own port.
+# --------------------------------------------------------------------------
+[[models]]
+id = "reap288"
+name = "Qwen3.8 Flash REAP-288"
+backend = "local"
+label = "OMLX"
+context_window = 131072
+max_output_tokens = 32768
+
+[models.endpoint]
+url = "http://127.0.0.1:8001/v1"
+
+[models.runtime]
+command = "omlx"
+args = ["serve", "--port", "8001"]
+ready_timeout_secs = 900
+
+[models.resources]
+estimated_ram_gb = 39
+min_ram_gb = 48
+recommended_ram_gb = 64
+
+
+# --------------------------------------------------------------------------
+# Example C — a rented DGX Spark over SSH.
+#
+# `host` is a Host alias from ~/.ssh/config. llmx runs:
+#     ssh -N -o ExitOnForwardFailure=yes -L 8100:127.0.0.1:8000 spark
+# The remote API port stays on the remote machine's loopback interface; it is
+# never exposed to the network.
+# --------------------------------------------------------------------------
+[[models]]
+id = "deepseek-v4-spark"
+name = "DeepSeek V4 Flash — DGX Spark"
+backend = "ssh"
+label = "SPARK"
+context_window = 262144
+max_output_tokens = 32768
+# Compact history at 75% of the context window.
+auto_compact_token_limit = 196608
+
+[models.endpoint]
+url = "http://127.0.0.1:8100/v1"   # port must equal ssh.local_port
+
+[models.ssh]
+host = "spark"                      # alias in ~/.ssh/config
+local_port = 8100                   # bound on this machine
+remote_host = "127.0.0.1"           # as seen FROM the remote host
+remote_port = 8000                  # where the model server listens there
+extra_args = ["-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3"]
+
+
+# --------------------------------------------------------------------------
+# Example D — a generic H200/B200 box running vLLM, also over SSH.
+# --------------------------------------------------------------------------
+[[models]]
+id = "big-qwen-h200"
+name = "Large Qwen — H200"
+backend = "ssh"
+label = "H200"
+context_window = 131072
+max_output_tokens = 32768
+
+[models.endpoint]
+url = "http://127.0.0.1:8200/v1"
+# llmx never stores keys. This names an environment variable that codex-local
+# reads at request time; llmx only forwards the name.
+# env_key = "VLLM_API_KEY"
+
+[models.ssh]
+host = "h200-box"
+local_port = 8200
+remote_port = 8000
+ready_timeout_secs = 300
+
+
+# --------------------------------------------------------------------------
+# Example E — a machine on your LAN. No tunnel, nothing started or stopped.
+# --------------------------------------------------------------------------
+[[models]]
+id = "lan-box"
+name = "Workshop Server"
+backend = "remote"
+label = "LAN"
+context_window = 32768
+max_output_tokens = 8192
+
+[models.endpoint]
+url = "http://192.168.1.50:8000/v1"
+
+# Anything codex-local understands can be passed straight through. Setting
+# approval_policy or sandbox_mode here also skips codex-local's first-run
+# trust prompt for this profile.
+[models.codex]
+approval_policy = "on-request"
