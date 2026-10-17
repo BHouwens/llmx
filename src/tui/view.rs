@@ -9,6 +9,7 @@ use crate::tui::state::tilde;
 use crate::tui::state::PickerState;
 use crate::tui::state::StartupState;
 use crate::tui::state::StepState;
+use ratatui::layout::Alignment;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
 use ratatui::layout::Layout;
@@ -27,6 +28,14 @@ use ratatui::widgets::Wrap;
 use ratatui::Frame;
 
 const DIM: Color = Color::DarkGray;
+const SELECTED_BACKGROUND: Color = Color::Rgb(48, 52, 67);
+const LOGO: [&str; 5] = [
+    " /░      /░      /░░░░░    /░ /░",
+    "│ ▒     │ ▒     │ ▒ ▒ ▒   │//▒▒/",
+    "│ ▓     │ ▓     │ ▓ ▓ ▓    │ ▓▓ ",
+    "│ ███   │ ███   │ █ █ █    /█ /█",
+    "│/__/   │/__/   │//////   │//│//",
+];
 
 fn status_style(status: &BackendStatus) -> Style {
     match status {
@@ -41,24 +50,38 @@ pub fn draw_picker(frame: &mut Frame, state: &PickerState, log_tail: &[LogLine])
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(LOGO.len() as u16),
             Constraint::Min(5),
             Constraint::Length(if state.show_logs { 10 } else { 12 }),
             Constraint::Length(1),
         ])
         .split(frame.area());
 
-    draw_model_list(frame, chunks[0], state);
+    draw_logo(frame, chunks[0]);
+    draw_model_list(frame, chunks[1], state);
 
     if state.show_logs {
-        draw_logs(frame, chunks[1], log_tail);
+        draw_logs(frame, chunks[2], log_tail);
     } else {
-        draw_detail(frame, chunks[1], state);
+        draw_detail(frame, chunks[2], state);
     }
 
     let hints = "[Enter] launch  [↑/↓ or j/k] select  [r] refresh  [l] logs  [q] quit";
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(hints, Style::default().fg(DIM)))),
-        chunks[2],
+        chunks[3],
+    );
+}
+
+fn draw_logo(frame: &mut Frame, area: Rect) {
+    let lines: Vec<Line> = LOGO.iter().map(|line| Line::from(*line)).collect();
+    frame.render_widget(
+        Paragraph::new(lines).alignment(Alignment::Center).style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        area,
     );
 }
 
@@ -128,7 +151,13 @@ fn draw_model_list(frame: &mut Frame, area: Rect, state: &PickerState) {
                 spans.push(Span::styled("  ⚠", Style::default().fg(Color::Yellow)));
             }
 
-            ListItem::new(Line::from(spans))
+            let item_style = if selected {
+                Style::default().bg(SELECTED_BACKGROUND)
+            } else {
+                Style::default()
+            };
+
+            ListItem::new(Line::from(spans)).style(item_style)
         })
         .collect();
 
