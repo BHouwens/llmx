@@ -145,7 +145,7 @@ impl App {
         drop(input_handle);
 
         let status = self
-            .launch_agent(&profile, backend.as_ref(), &model_id, &log)
+            .launch_agent(&profile, backend.as_ref(), &model_id, &log, None)
             .await;
         self.cleanup(&mut backend, &log).await;
 
@@ -163,6 +163,16 @@ impl App {
 
     /// Non-interactive launch of a named profile.
     pub async fn run_profile(&self, id: &str) -> Result<i32> {
+        self.run_profile_mode(id, None).await
+    }
+
+    /// Resume a conversation under a named model profile.
+    pub async fn resume_profile(&self, id: &str, session_id: Option<&str>) -> Result<i32> {
+        self.run_profile_mode(id, Some(session_id.map(str::to_string)))
+            .await
+    }
+
+    async fn run_profile_mode(&self, id: &str, resume: Option<Option<String>>) -> Result<i32> {
         let profile = self.find(id)?.clone();
         let log = self.new_log(&profile.id);
 
@@ -192,7 +202,7 @@ impl App {
         };
 
         let status = self
-            .launch_agent(&profile, backend.as_ref(), &model_id, &log)
+            .launch_agent(&profile, backend.as_ref(), &model_id, &log, resume)
             .await;
         self.cleanup(&mut backend, &log).await;
 
@@ -281,6 +291,7 @@ impl App {
         backend: &dyn Backend,
         model_id: &str,
         log: &SessionLog,
+        resume: Option<Option<String>>,
     ) -> Result<i32> {
         let endpoint = ModelEndpoint {
             base_url: backend.base_url().to_string(),
@@ -314,6 +325,7 @@ impl App {
             program,
             cwd: self.cwd.clone(),
             delivery,
+            resume,
         };
 
         let status = codex::launcher::run(&plan, log).await?;

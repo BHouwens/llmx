@@ -42,6 +42,14 @@ enum Command {
         id: String,
     },
 
+    /// Resume a codex-local conversation using a model profile.
+    Resume {
+        /// Profile id from your models.toml.
+        id: String,
+        /// Conversation UUID. Omit it to open codex-local's session picker.
+        session_id: Option<String>,
+    },
+
     /// List configured model profiles.
     List,
 
@@ -89,6 +97,11 @@ async fn run(cli: Cli) -> Result<i32> {
     match cli.command {
         None => app::App::load()?.run_tui().await,
         Some(Command::Run { id }) => app::App::load()?.run_profile(&id).await,
+        Some(Command::Resume { id, session_id }) => {
+            app::App::load()?
+                .resume_profile(&id, session_id.as_deref())
+                .await
+        }
         Some(Command::List) => {
             app::App::load()?.list();
             Ok(0)

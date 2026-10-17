@@ -320,6 +320,7 @@ fn the_launch_plan_targets_codex_local_in_the_current_directory() {
         program: "codex-local".to_string(),
         cwd: std::path::PathBuf::from("/Users/someone/code/project"),
         delivery: ConfigDelivery::Overrides(to_cli_overrides(&document).expect("flatten")),
+        resume: None,
     };
 
     let args = plan.args();
@@ -352,6 +353,7 @@ fn codex_home_mode_sets_the_env_var_in_the_logged_command_line() {
         program: "codex-local".to_string(),
         cwd: std::path::PathBuf::from("/tmp/p"),
         delivery: ConfigDelivery::CodexHome(std::path::PathBuf::from("/tmp/llmx/home-x")),
+        resume: None,
     };
     let line = plan.command_line();
     assert!(

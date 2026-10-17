@@ -312,6 +312,7 @@ impl App {
             program: self.config.settings.codex_bin.clone(),
             cwd: self.cwd.clone(),
             delivery,
+            resume: None,
         };
         println!("launch:");
         println!("  {}", plan.command_line());

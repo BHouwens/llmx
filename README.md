@@ -422,6 +422,8 @@ has to stay in the foreground group to own the terminal.
 ```
 llmx                  open the model picker (default)
 llmx run <id>         launch a profile directly, no picker
+llmx resume <id>      resume a conversation with a profile (opens session picker)
+llmx resume <id> <uuid>  resume a specific conversation
 llmx list             list configured profiles
 llmx status           probe every endpoint; starts nothing
 llmx doctor           check config, executables, ssh aliases, writable paths
@@ -429,6 +431,11 @@ llmx explain <id>     show the tunnel, the generated config and the exact
                       command line, without running anything
 llmx logs             print the newest session log  (--list, -n N)
 ```
+
+`llmx resume` starts the selected profile's backend and launches
+`codex-local resume` with that profile's generated model configuration. With
+no UUID, codex-local shows its conversation picker; with a UUID, it resumes
+that conversation directly.
 
 ### Keys in the picker
 

@@ -30,6 +30,8 @@ pub struct LaunchPlan {
     pub program: String,
     pub cwd: PathBuf,
     pub delivery: ConfigDelivery,
+    /// Resume an existing conversation; the inner `None` opens the session picker.
+    pub resume: Option<Option<String>>,
 }
 
 impl LaunchPlan {
@@ -40,6 +42,12 @@ impl LaunchPlan {
             for item in overrides {
                 args.push("-c".to_string());
                 args.push(item.clone());
+            }
+        }
+        if let Some(session_id) = &self.resume {
+            args.push("resume".to_string());
+            if let Some(session_id) = session_id {
+                args.push(session_id.clone());
             }
         }
         args
