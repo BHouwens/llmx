@@ -69,6 +69,40 @@ impl SshBackend {
     }
 }
 
+/// Explain an ssh failure in terms of what to do about it.
+///
+/// llmx runs ssh with stdin closed so it cannot corrupt the terminal, which
+/// also means ssh can never prompt for a passphrase or a host-key
+/// confirmation. Those two cases look like bare refusals unless said plainly.
+pub(crate) fn ssh_hint(detail: &str) -> Option<&'static str> {
+    let lower = detail.to_ascii_lowercase();
+    if lower.contains("permission denied") || lower.contains("publickey") {
+        return Some(
+            "llmx runs ssh with no terminal, so it cannot ask for a key passphrase. \
+             Run `ssh-add <your key>` first, or use a key without a passphrase.",
+        );
+    }
+    if lower.contains("host key verification failed") || lower.contains("authenticity of host") {
+        return Some(
+            "the host is not in ~/.ssh/known_hosts and llmx cannot answer the prompt. \
+             Connect once by hand (`ssh <host>`) to accept the key, then retry.",
+        );
+    }
+    if lower.contains("address already in use") || lower.contains("cannot listen to port") {
+        return Some(
+            "another process holds the local port. Change ssh.local_port (and the port in \
+             endpoint.url to match), or stop whatever is using it.",
+        );
+    }
+    if lower.contains("could not resolve hostname") {
+        return Some(
+            "the host is neither a Host alias in ~/.ssh/config nor a resolvable hostname. \
+             Check it with `llmx doctor`.",
+        );
+    }
+    None
+}
+
 #[async_trait]
 impl Backend for SshBackend {
     fn describe(&self) -> String {
@@ -125,7 +159,7 @@ impl Backend for SshBackend {
         cancel: &mut watch::Receiver<bool>,
         on_progress: &mut (dyn FnMut(WaitProgress) + Send),
     ) -> Result<Vec<ServedModel>, WaitError> {
-        wait_with_supervision(
+        let result = wait_with_supervision(
             &self.base_url,
             self.api_key.as_deref(),
             self.timeout,
@@ -133,7 +167,20 @@ impl Backend for SshBackend {
             cancel,
             on_progress,
         )
-        .await
+        .await;
+
+        // ssh's own messages are accurate but assume you know why it could
+        // not ask you anything. Name the cause it cannot name itself.
+        match result {
+            Err(WaitError::BackendExited { what, detail }) => Err(WaitError::BackendExited {
+                what,
+                detail: match ssh_hint(&detail) {
+                    Some(hint) => format!("{detail}\n\nhint: {hint}"),
+                    None => detail,
+                },
+            }),
+            other => other,
+        }
     }
 
     async fn shutdown(&mut self) -> Result<()> {

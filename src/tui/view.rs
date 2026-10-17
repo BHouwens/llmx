@@ -42,7 +42,7 @@ pub fn draw_picker(frame: &mut Frame, state: &PickerState, log_tail: &[LogLine])
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(5),
-            Constraint::Length(if state.show_logs { 10 } else { 11 }),
+            Constraint::Length(if state.show_logs { 10 } else { 12 }),
             Constraint::Length(1),
         ])
         .split(frame.area());
@@ -98,9 +98,13 @@ fn draw_model_list(frame: &mut Frame, area: Rect, state: &PickerState) {
             } else {
                 Style::default()
             };
+            let provider = provider_name(row);
+            let badge = provider_badge(&provider);
 
             let mut spans = vec![
                 Span::styled(marker, Style::default().fg(DIM)),
+                Span::styled(format!(" {badge} "), provider_style(&provider)),
+                Span::raw(" "),
                 Span::styled(
                     format!("{:<width$}", row.profile.name, width = name_width),
                     name_style,
@@ -143,15 +147,40 @@ fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
     };
 
     let profile = &row.profile;
-    let mut lines = vec![
-        field("Selected", &profile.name),
-        field(
-            "Backend",
-            &format!("{} · {}", profile.backend.as_str(), profile.label()),
+    let provider = provider_name(row);
+    let mut chips = vec![
+        Span::styled(
+            format!(" {} ", provider_badge(&provider)),
+            provider_style(&provider),
         ),
+        Span::styled(
+            format!(" {} ", profile.backend.as_str().to_uppercase()),
+            Style::default().fg(Color::Black).bg(Color::Cyan),
+        ),
+    ];
+    if let Some(info) = &profile.info {
+        if let Some(value) = &info.quantization {
+            chips.push(Span::styled(
+                format!(" {value} "),
+                Style::default().fg(Color::Magenta),
+            ));
+        }
+        if let Some(value) = &info.pruning {
+            chips.push(Span::styled(
+                format!(" {value} "),
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+    }
+    let mut lines = vec![
+        Line::from(Span::styled(
+            profile.name.clone(),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(chips),
         field("Endpoint", &profile.endpoint.url),
         field(
-            "Model id",
+            "Model",
             profile
                 .model_id
                 .as_deref()
@@ -170,6 +199,12 @@ fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
             Span::styled(row.status.label().to_string(), status_style(&row.status)),
         ]),
     ];
+
+    if let Some(info) = &profile.info {
+        if let Some(hardware) = &info.hardware {
+            lines.push(field("Hardware", hardware));
+        }
+    }
 
     let memory_line = match (&row.memory, state.total_ram_gb) {
         (MemoryVerdict::Insufficient(detail), _) => Some(Line::from(vec![
@@ -202,6 +237,23 @@ fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
     };
     lines.extend(memory_line);
 
+    if let Some(resources) = &profile.resources {
+        let vram = match (
+            resources.min_vram_gb,
+            resources.recommended_vram_gb,
+            resources.estimated_vram_gb,
+        ) {
+            (Some(min), Some(rec), _) => format!("{min:.0} GB min · {rec:.0} GB recommended VRAM"),
+            (Some(min), _, _) => format!("{min:.0} GB minimum VRAM"),
+            (_, Some(rec), _) => format!("{rec:.0} GB recommended VRAM"),
+            (_, _, Some(est)) => format!("est. {est:.0} GB VRAM"),
+            _ => String::new(),
+        };
+        if !vram.is_empty() {
+            lines.push(field("GPU memory", &vram));
+        }
+    }
+
     lines.push(field("Project", &tilde(&state.cwd)));
 
     if let BackendStatus::Error(message) = &row.status {
@@ -217,6 +269,54 @@ fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
             .block(Block::default().borders(Borders::ALL).title(" Details ")),
         area,
     );
+}
+
+fn provider_name(row: &crate::tui::state::ProfileRow) -> String {
+    row.profile
+        .info
+        .as_ref()
+        .and_then(|i| i.provider.clone())
+        .or_else(|| {
+            row.profile
+                .model_id
+                .as_deref()
+                .and_then(|id| id.split('/').next().map(str::to_owned))
+        })
+        .unwrap_or_else(|| row.profile.label())
+}
+
+fn provider_badge(provider: &str) -> String {
+    let letters: String = provider
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .take(2)
+        .collect();
+    if letters.is_empty() {
+        "AI".to_string()
+    } else {
+        letters.to_uppercase()
+    }
+}
+
+fn provider_style(provider: &str) -> Style {
+    let p = provider.to_ascii_lowercase();
+    let color = if p.contains("anthropic") || p.contains("claude") {
+        Color::Yellow
+    } else if p.contains("openai") || p.contains("gpt") {
+        Color::Green
+    } else if p.contains("google") || p.contains("gemini") {
+        Color::Blue
+    } else if p.contains("meta") || p.contains("llama") {
+        Color::Cyan
+    } else if p.contains("qwen") || p.contains("alibaba") {
+        Color::LightRed
+    } else {
+        Color::White
+    };
+    Style::default()
+        .fg(Color::Black)
+        .bg(color)
+        .add_modifier(Modifier::BOLD)
 }
 
 fn draw_logs(frame: &mut Frame, area: Rect, tail: &[LogLine]) {

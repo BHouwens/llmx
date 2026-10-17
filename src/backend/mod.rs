@@ -8,6 +8,9 @@ pub mod local;
 pub mod remote;
 pub mod ssh;
 
+#[cfg(test)]
+mod tests;
+
 use crate::config::ModelProfile;
 use crate::endpoint::health;
 use crate::endpoint::WaitError;

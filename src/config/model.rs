@@ -159,11 +159,30 @@ pub struct ModelProfile {
     #[serde(default)]
     pub resources: Option<ResourceHints>,
 
+    /// Optional facts used to describe the model in the picker. These are
+    /// supplied by the profile author rather than guessed from a repository id.
+    #[serde(default)]
+    pub info: Option<ModelInfo>,
+
     /// Extra keys merged verbatim into the generated codex-local config.
     /// Use for things llmx has no opinion about (`approval_policy`,
     /// `model_reasoning_effort`, ...). Values are arbitrary TOML.
     #[serde(default)]
     pub codex: BTreeMap<String, toml::Value>,
+}
+
+/// Human-readable model facts shown in the picker.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ModelInfo {
+    /// Provider or organization name, e.g. `Qwen` or `Meta`.
+    pub provider: Option<String>,
+    /// Quantization, e.g. `4-bit`, `FP8`, or `BF16`.
+    pub quantization: Option<String>,
+    /// Pruning or sparsity method, e.g. `REAP-288`.
+    pub pruning: Option<String>,
+    /// Optional hardware note, e.g. `1× 24 GB GPU`.
+    pub hardware: Option<String>,
 }
 
 impl ModelProfile {
@@ -258,4 +277,7 @@ pub struct ResourceHints {
     pub estimated_ram_gb: Option<f64>,
     pub min_ram_gb: Option<f64>,
     pub recommended_ram_gb: Option<f64>,
+    pub estimated_vram_gb: Option<f64>,
+    pub min_vram_gb: Option<f64>,
+    pub recommended_vram_gb: Option<f64>,
 }

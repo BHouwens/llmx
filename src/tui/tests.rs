@@ -10,6 +10,9 @@ fn hints(estimated: Option<f64>, min: Option<f64>, recommended: Option<f64>) -> 
         estimated_ram_gb: estimated,
         min_ram_gb: min,
         recommended_ram_gb: recommended,
+        estimated_vram_gb: None,
+        min_vram_gb: None,
+        recommended_vram_gb: None,
     }
 }
 

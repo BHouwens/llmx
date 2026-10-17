@@ -30,20 +30,28 @@ isolation = "overrides"
 # --------------------------------------------------------------------------
 [[models]]
 id = "qwen38-27b"
-name = "Qwen3.8 27B"
-model_id = "Qwen3.8-27B"      # omit to discover from GET /v1/models
+name = "Qwen3.8 27B (4-bit)"
+model_id = "mlx-community/Qwen3.8-27B-4bit"
 backend = "local"
 label = "MLX"                  # short tag in the picker; defaults to LOCAL
 context_window = 131072
 max_output_tokens = 32768
+
+[models.info]
+provider = "Qwen"
+quantization = "4-bit"
 
 [models.endpoint]
 url = "http://127.0.0.1:8000/v1"
 
 [models.runtime]
 command = "mlx_lm.server"
-args = ["--model", "mlx-community/Qwen3.8-27B-6bit", "--port", "8000"]
-# ready_timeout_secs = 600     # weights take a while on first load
+args = [
+  "--model", "mlx-community/Qwen3.8-27B-4bit",
+  "--host", "127.0.0.1",
+  "--port", "8000",
+]
+ready_timeout_secs = 600       # weights take a while on first load
 # env = { HF_HUB_OFFLINE = "1" }
 # cwd = "/Users/you/models"
 
@@ -51,6 +59,10 @@ args = ["--model", "mlx-community/Qwen3.8-27B-6bit", "--port", "8000"]
 # Advisory only — llmx warns, it never blocks a launch.
 estimated_ram_gb = 22
 recommended_ram_gb = 32
+
+[models.codex]
+# Qwen emits shell commands as strings; this tool's `cmd` schema matches it.
+experimental_use_exec_command_tool = true
 
 
 # --------------------------------------------------------------------------
@@ -64,6 +76,10 @@ label = "OMLX"
 context_window = 131072
 max_output_tokens = 32768
 
+[models.info]
+provider = "Qwen"
+pruning = "REAP-288"
+
 [models.endpoint]
 url = "http://127.0.0.1:8001/v1"
 
@@ -76,6 +92,7 @@ ready_timeout_secs = 900
 estimated_ram_gb = 39
 min_ram_gb = 48
 recommended_ram_gb = 64
+recommended_vram_gb = 24
 
 
 # --------------------------------------------------------------------------

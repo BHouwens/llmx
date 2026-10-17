@@ -87,6 +87,13 @@ cargo build --release
 install -m 755 target/release/llmx ~/.local/bin/llmx    # or anywhere on PATH
 ```
 
+When building from this checkout, the same steps are available as:
+
+```bash
+./scripts/install.sh                    # installs to ~/.local/bin/llmx
+./scripts/install.sh /some/bin/directory # optional install directory
+```
+
 The result is one native binary of about 4 MB with no runtime dependencies.
 
 Check the setup:
@@ -147,17 +154,29 @@ url = "http://127.0.0.1:8000/v1"   # OpenAI-compatible base URL
 | `ssh.local_port` | ssh | Port bound here. Must match the port in `endpoint.url`. |
 | `ssh.remote_host` / `.remote_port` | ssh | Where the server listens *on the remote machine*. Defaults to `127.0.0.1`. |
 | `ssh.extra_args` | ssh | Extra `ssh` flags, spliced in before the host. |
-| `resources.*` | all | Advisory RAM hints. llmx warns; it never blocks a launch. |
+| `resources.*` | all | Advisory RAM and VRAM hints for the picker. RAM hints drive the existing fit warning; they never block a launch. |
+| `[models.info]` | all | Optional `provider`, `quantization`, `pruning`, and `hardware` labels for the picker. |
+| `resources.*_vram_gb` | all | Optional minimum, recommended, or estimated GPU memory in GB. |
 | `[models.codex]` | all | Arbitrary keys merged into the generated codex-local config. |
 
 ---
 
 ## Example: a local MLX model
 
+Install the MLX runtime once (Apple silicon only):
+
+```bash
+uv tool install --upgrade mlx-lm
+hf download mlx-community/Qwen3.8-27B-4bit
+```
+
+Then add this profile to `~/.config/llmx/models.toml`:
+
 ```toml
 [[models]]
 id = "qwen38-27b"
-name = "Qwen3.8 27B"
+name = "Qwen3.8 27B (4-bit)"
+model_id = "mlx-community/Qwen3.8-27B-4bit"
 backend = "local"
 label = "MLX"
 context_window = 131072
@@ -168,12 +187,20 @@ url = "http://127.0.0.1:8000/v1"
 
 [models.runtime]
 command = "mlx_lm.server"
-args = ["--model", "mlx-community/Qwen3.8-27B-6bit", "--port", "8000"]
+args = [
+  "--model", "mlx-community/Qwen3.8-27B-4bit",
+  "--host", "127.0.0.1",
+  "--port", "8000",
+]
 ready_timeout_secs = 600
 
 [models.resources]
 estimated_ram_gb = 22
 recommended_ram_gb = 32
+
+[models.codex]
+# Uses a string `cmd`, matching Qwen's tool-call output.
+experimental_use_exec_command_tool = true
 ```
 
 On launch llmx checks whether `http://127.0.0.1:8000/v1` already answers.
@@ -183,8 +210,38 @@ On launch llmx checks whether `http://127.0.0.1:8000/v1` already answers.
 - **It does not** → llmx starts `mlx_lm.server`, waits for the endpoint, and
   stops it when codex-local exits.
 
-Because `model_id` is omitted and MLX serves one model, llmx discovers the id
-from `GET /v1/models`.
+Current versions of `mlx_lm.server` list every compatible model in the local
+Hugging Face cache from `GET /v1/models`, not just the model named by
+`--model`. Pre-downloading the weights makes the model visible to that endpoint;
+setting `model_id` prevents another cached MLX model from being selected.
+
+Check the wiring without downloading or starting the model:
+
+```bash
+llmx doctor
+llmx explain qwen38-27b
+```
+
+To test-drive it against another repository, change to that repository and
+launch the profile. llmx passes that working directory to codex-local, so the
+agent can inspect the repository from the terminal:
+
+```bash
+cd ~/code/project-to-inspect
+llmx run qwen38-27b
+```
+
+The `hf download` step downloads about 16 GB of model weights into the Hugging
+Face cache and can take a while. At the codex-local prompt, a useful read-only
+first task is:
+
+```text
+Inspect this repository without changing files. Explain its architecture,
+entry points, test commands, and the three highest-risk areas.
+```
+
+Exit codex-local normally when finished; llmx then stops the MLX server it
+started. If the endpoint was already running, llmx leaves it running.
 
 ---
 
@@ -455,7 +512,7 @@ memory, and never blocks a launch on this.
 ## Development
 
 ```bash
-cargo test            # 68 tests, no network or cloud host required
+cargo test
 cargo clippy --all-targets
 cargo fmt
 ```
@@ -467,20 +524,32 @@ Layout:
 
 ```
 src/
-  main.rs        CLI entry point
-  app.rs         orchestration and the non-interactive commands
-  config/        schema, loading, validation
-  backend/       local | ssh | remote, behind one `Backend` trait
-  endpoint/      health checks and model discovery
-  codex/         generating codex-local config and launching it
-  process/       owned children, process groups, cleanup
-  tui/           picker and startup screens (ratatui + crossterm)
-  system.rs      physical RAM detection for advisory warnings
+  main.rs         CLI parsing and Tokio runtime
+  app.rs          profile launch lifecycle and cleanup
+  app/commands.rs list, status, doctor, logs and explain commands
+  config/         TOML schema, loading and validation
+  backend/        local, SSH and direct endpoints behind `Backend`
+  endpoint/       OpenAI-compatible health checks and model discovery
+  codex/          generated config, delivery strategy and agent process
+  process/        owned child processes, output capture and cleanup
+  tui/            picker/startup state, events and rendering
+  logging/        per-session logs and in-memory log tail
+  paths.rs        config, state and data locations
+  system.rs       physical RAM detection for advisory warnings
 ```
 
-The `Backend` trait is the seam that keeps this extensible: anything that can
-produce a base URL which answers `GET /models` plugs in without codex-local, the
-TUI, or the config layer knowing about it.
+The launch flow is `main` → `App::run_profile` or `App::run_tui` → backend
+startup and endpoint health check → model id resolution → codex-local config
+generation → agent launch → backend cleanup. `Backend` isolates transport and
+process ownership: local, SSH and direct endpoints all return the same served
+model list. Endpoint discovery and config generation do not depend on which
+transport produced it.
+
+Configuration structs mirror the TOML file. `config::loader` parses the file
+and `config::validation` checks cross-field rules before `App` can use it. The
+TUI owns presentation state and input; it delegates backend work through the
+same trait used by `llmx run`. `ProcessManager` only tracks children spawned by
+llmx, which keeps cleanup from signaling a server that was already running.
 
 macOS is the primary platform; Linux is supported. Windows is not.
 

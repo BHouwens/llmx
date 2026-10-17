@@ -261,6 +261,9 @@ fn validate_profile(profile: &ModelProfile, errors: &mut Vec<ValidationError>) {
             ("estimated_ram_gb", resources.estimated_ram_gb),
             ("min_ram_gb", resources.min_ram_gb),
             ("recommended_ram_gb", resources.recommended_ram_gb),
+            ("estimated_vram_gb", resources.estimated_vram_gb),
+            ("min_vram_gb", resources.min_vram_gb),
+            ("recommended_vram_gb", resources.recommended_vram_gb),
         ] {
             if let Some(v) = value {
                 if !v.is_finite() || v <= 0.0 {
