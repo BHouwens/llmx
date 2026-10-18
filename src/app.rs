@@ -81,8 +81,13 @@ impl App {
             system::total_ram_gb(),
         );
 
+        let query_images = self
+            .config
+            .models
+            .iter()
+            .any(|profile| profile.logo.is_some());
+        let mut guard = tui::TerminalGuard::enter(query_images)?;
         let (mut input, input_handle) = tui::events::spawn_reader();
-        let mut guard = tui::TerminalGuard::enter()?;
 
         let selected = match tui::run_picker(
             &mut guard,

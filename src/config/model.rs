@@ -134,6 +134,11 @@ pub struct ModelProfile {
     #[serde(default)]
     pub label: Option<String>,
 
+    /// Optional model logo image (PNG or JPEG). Relative paths are resolved
+    /// from the directory containing `models.toml`.
+    #[serde(default)]
+    pub logo: Option<PathBuf>,
+
     pub context_window: Option<u64>,
     pub max_output_tokens: Option<u64>,
 

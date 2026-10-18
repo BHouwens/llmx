@@ -25,6 +25,8 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use ratatui_image::picker::Picker;
+use ratatui_image::picker::ProtocolType;
 use std::io::stdout;
 use std::io::Stdout;
 use std::time::Duration;
@@ -41,17 +43,27 @@ type Term = Terminal<CrosstermBackend<Stdout>>;
 /// leave the user with an unusable shell.
 pub struct TerminalGuard {
     terminal: Option<Term>,
+    image_picker: Picker,
 }
 
 impl TerminalGuard {
-    pub fn enter() -> Result<Self> {
+    pub fn enter(query_images: bool) -> Result<Self> {
         enable_raw_mode().context("failed to enable raw mode")?;
         let mut out = stdout();
         execute!(out, EnterAlternateScreen).context("failed to enter alternate screen")?;
+        // Query before the input-reader thread starts so it cannot consume
+        // the terminal's graphics-capability response. Half-block rendering
+        // works in terminals without a native image protocol.
+        let image_picker = if query_images {
+            Picker::from_query_stdio().unwrap_or_else(|_| halfblock_picker())
+        } else {
+            halfblock_picker()
+        };
         let terminal =
             Terminal::new(CrosstermBackend::new(out)).context("failed to create terminal")?;
         Ok(Self {
             terminal: Some(terminal),
+            image_picker,
         })
     }
 
@@ -59,6 +71,10 @@ impl TerminalGuard {
         self.terminal
             .as_mut()
             .expect("terminal is present until leave() or drop")
+    }
+
+    fn image_picker(&mut self) -> &mut Picker {
+        &mut self.image_picker
     }
 
     /// Restore the terminal explicitly, before handing it to another program.
@@ -70,6 +86,12 @@ impl TerminalGuard {
         }
         Ok(())
     }
+}
+
+fn halfblock_picker() -> Picker {
+    let mut picker = Picker::from_fontsize((10, 20));
+    picker.set_protocol_type(ProtocolType::Halfblocks);
+    picker
 }
 
 impl Drop for TerminalGuard {
@@ -92,6 +114,7 @@ pub async fn run_picker(
     log: &SessionLog,
     settings_timeout: Duration,
 ) -> Result<PickerOutcome> {
+    let mut logos = load_model_logos(state, guard.image_picker(), log);
     let (status_tx, mut status_rx) = mpsc::channel::<(usize, BackendStatus)>(32);
     log.info(format!("config: {}", state.config_path.display()));
     spawn_status_probes(state, status_tx.clone(), settings_timeout, log);
@@ -103,7 +126,7 @@ pub async fn run_picker(
         let tail = log.tail(64);
         guard
             .terminal()
-            .draw(|frame| view::draw_picker(frame, state, &tail))?;
+            .draw(|frame| view::draw_picker(frame, state, &tail, &mut logos))?;
 
         tokio::select! {
             Some(action) = input.recv() => match action {
@@ -135,6 +158,55 @@ pub async fn run_picker(
             _ = ticker.tick() => {}
         }
     }
+}
+
+fn load_model_logos(
+    state: &PickerState,
+    picker: &mut Picker,
+    log: &SessionLog,
+) -> Vec<Option<ratatui_image::protocol::Protocol>> {
+    use ratatui::layout::Rect;
+    use ratatui_image::Resize;
+
+    let config_dir = state
+        .config_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+
+    state
+        .rows
+        .iter()
+        .map(|row| {
+            let logo = row.profile.logo.as_ref()?;
+            let path = if logo.is_absolute() {
+                logo.clone()
+            } else {
+                config_dir.join(logo)
+            };
+            let image = match image::open(&path) {
+                Ok(image) => image,
+                Err(error) => {
+                    log.warn(format!(
+                        "could not load logo for model `{}` from {}: {error}",
+                        row.profile.id,
+                        path.display()
+                    ));
+                    return None;
+                }
+            };
+
+            match picker.new_protocol(image, Rect::new(0, 0, 14, 7), Resize::Fit(None)) {
+                Ok(protocol) => Some(protocol),
+                Err(error) => {
+                    log.warn(format!(
+                        "could not prepare logo for model `{}`: {error}",
+                        row.profile.id
+                    ));
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 /// Probe every profile's endpoint concurrently.

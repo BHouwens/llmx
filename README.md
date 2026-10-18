@@ -128,6 +128,8 @@ name = "My Model"                  # shown in the picker
 backend = "local"                  # local | ssh | remote
 context_window = 131072
 max_output_tokens = 32768
+# Optional PNG/JPEG shown in the picker details; relative to this config file.
+# logo = "logos/my-model.png"
 
 [models.endpoint]
 url = "http://127.0.0.1:8000/v1"   # OpenAI-compatible base URL
@@ -142,6 +144,7 @@ url = "http://127.0.0.1:8000/v1"   # OpenAI-compatible base URL
 | `model_id` | all | Model id the server expects. **Omit it** to discover from `GET /v1/models`. |
 | `backend` | all | `local`, `ssh` or `remote`. |
 | `label` | all | Short tag in the picker's second column. Defaults to the backend name. |
+| `logo` | all | Optional PNG/JPEG image shown for the selected model. Relative paths are resolved from the `models.toml` directory. Terminals without image graphics use half-block rendering. |
 | `context_window` | all | Tokens in. Passed to codex-local as `model_context_window`. |
 | `max_output_tokens` | all | Tokens out. Must be smaller than `context_window`. |
 | `auto_compact_token_limit` | all | When codex-local compacts history. |

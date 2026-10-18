@@ -26,6 +26,8 @@ use ratatui::widgets::ListItem;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::Wrap;
 use ratatui::Frame;
+use ratatui_image::protocol::Protocol;
+use ratatui_image::Image;
 
 const DIM: Color = Color::DarkGray;
 const SELECTED_BACKGROUND: Color = Color::Rgb(48, 52, 67);
@@ -46,7 +48,12 @@ fn status_style(status: &BackendStatus) -> Style {
     }
 }
 
-pub fn draw_picker(frame: &mut Frame, state: &PickerState, log_tail: &[LogLine]) {
+pub fn draw_picker(
+    frame: &mut Frame,
+    state: &PickerState,
+    log_tail: &[LogLine],
+    logos: &mut [Option<Protocol>],
+) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -63,7 +70,8 @@ pub fn draw_picker(frame: &mut Frame, state: &PickerState, log_tail: &[LogLine])
     if state.show_logs {
         draw_logs(frame, chunks[2], log_tail);
     } else {
-        draw_detail(frame, chunks[2], state);
+        let logo = logos.get_mut(state.selected).and_then(Option::as_mut);
+        draw_detail(frame, chunks[2], state, logo);
     }
 
     let hints = "[Enter] launch  [↑/↓ or j/k] select  [r] refresh  [l] logs  [q] quit";
@@ -165,7 +173,7 @@ fn draw_model_list(frame: &mut Frame, area: Rect, state: &PickerState) {
     frame.render_widget(list, area);
 }
 
-fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
+fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState, logo: Option<&mut Protocol>) {
     let Some(row) = state.selected_row() else {
         frame.render_widget(
             Paragraph::new("No models configured.")
@@ -292,12 +300,20 @@ fn draw_detail(frame: &mut Frame, area: Rect, state: &PickerState) {
         )));
     }
 
-    frame.render_widget(
-        Paragraph::new(lines)
-            .wrap(Wrap { trim: true })
-            .block(Block::default().borders(Borders::ALL).title(" Details ")),
-        area,
-    );
+    let block = Block::default().borders(Borders::ALL).title(" Details ");
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if let Some(logo) = logo.filter(|_| inner.width >= 68 && inner.height >= 7) {
+        let panes = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(1), Constraint::Length(16)])
+            .split(inner);
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), panes[0]);
+        frame.render_widget(Image::new(logo), panes[1]);
+    } else {
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }), inner);
+    }
 }
 
 fn provider_name(row: &crate::tui::state::ProfileRow) -> String {
