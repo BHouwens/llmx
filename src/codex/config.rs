@@ -47,12 +47,12 @@ pub fn build_document(profile: &ModelProfile, endpoint: &ModelEndpoint) -> Table
         "wire_api".to_string(),
         Value::String(profile.wire_api.as_str().to_string()),
     );
-    // Local and tunnelled servers stream slowly while loading context; the
-    // codex default of 300s is right, but stating it makes the generated file
-    // self-describing.
+    // Local model servers can spend several minutes pre-filling a large
+    // prompt before they emit the first stream event. A longer idle timeout
+    // prevents codex-local from cancelling a healthy request during that work.
     provider.insert(
         "stream_idle_timeout_ms".to_string(),
-        Value::Integer(300_000),
+        Value::Integer(1_800_000),
     );
     provider.insert("request_max_retries".to_string(), Value::Integer(2));
     provider.insert("stream_max_retries".to_string(), Value::Integer(2));

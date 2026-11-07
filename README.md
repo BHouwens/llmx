@@ -119,6 +119,15 @@ $EDITOR ~/.config/llmx/models.toml
 model names, ports and flags in it are **examples** — check them against the
 runtime you actually have installed.
 
+It also includes a Fireworks AI profile. Fireworks exposes an
+OpenAI-compatible API, so llmx can launch codex-local against it while repo
+access and coding tools remain local. Set `FIREWORKS_API_KEY` in the
+environment first. The sample uses GLM 5.3 Flash, which Fireworks lists as
+serverless and function-calling capable. Fireworks prompt caching is automatic;
+stable prefixes from repeated requests are billed at the cached-input rate.
+See [Fireworks' GLM 5.3 Flash page](https://fireworks.ai/models/fireworks/glm-5p3-flash)
+for current pricing and availability.
+
 A minimal profile:
 
 ```toml
@@ -365,7 +374,7 @@ base_url = "http://127.0.0.1:8100/v1"
 wire_api = "chat"
 request_max_retries = 2
 stream_max_retries = 2
-stream_idle_timeout_ms = 300000
+stream_idle_timeout_ms = 1800000
 requires_openai_auth = false
 ```
 

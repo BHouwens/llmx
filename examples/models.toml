@@ -174,3 +174,163 @@ url = "http://192.168.1.50:8000/v1"
 # trust prompt for this profile.
 [models.codex]
 approval_policy = "on-request"
+
+
+# --------------------------------------------------------------------------
+# Example F — Fireworks AI hosted inference.
+#
+# Set FIREWORKS_API_KEY in the environment before launching llmx. This profile
+# uses Fireworks' OpenAI-compatible API and a serverless GLM model with function
+# calling. Prompt caching is automatic; repeated stable prefixes are billed at
+# the model's cached-input rate.
+# --------------------------------------------------------------------------
+[[models]]
+id = "fireworks-glm-5p3-flash"
+name = "GLM 5.3 Flash — Fireworks"
+model_id = "accounts/fireworks/models/glm-5p3-flash"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+max_output_tokens = 32768
+auto_compact_token_limit = 786432
+wire_api = "chat"
+
+[models.info]
+provider = "Z.ai / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-mimo-v2-6-pro-rl"
+name = "MiMo-V2.6-Pro-RL — Fireworks"
+model_id = "accounts/fireworks/models/mimo-v2p6-pro-rl"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "Xiaomi / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+# Fireworks' serverless catalog (checked 2026-11-07). Each profile uses the
+# same OpenAI-compatible endpoint and API key. The catalog changes over time;
+# confirm model IDs and availability on https://fireworks.ai/models.
+# These are chat/generation models; embedding and reranking models are omitted
+# because llmx launches an interactive chat client.
+[[models]]
+id = "fireworks-deepseek-v4-1-flash"
+name = "DeepSeek V4.1 Flash — Fireworks"
+model_id = "accounts/fireworks/models/deepseek-v4p1-flash"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "DeepSeek / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-deepseek-v4-1-flash-1017"
+name = "DeepSeek V4.1 Flash 1017 — Fireworks"
+model_id = "accounts/fireworks/models/deepseek-v4p1-flash-1017"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "DeepSeek / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-ember-1"
+name = "Ember-1 — Fireworks"
+model_id = "accounts/fireworks/models/ember-1"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-minimax-m3-1-flash"
+name = "MiniMax M3.1 Flash — Fireworks"
+model_id = "accounts/fireworks/models/minimax-m3p1-flash"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "MiniMax / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-glm-5-3"
+name = "GLM-5.3 — Fireworks"
+model_id = "accounts/fireworks/models/glm-5p3"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 1048576
+wire_api = "chat"
+
+[models.info]
+provider = "Z.ai / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-qwen3-8-flash-next-fp4"
+name = "Qwen3.8 Flash Next FP4 — Fireworks"
+model_id = "accounts/fireworks/models/qwen3p8-flash-next-fp4"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 262144
+wire_api = "chat"
+
+[models.info]
+provider = "Qwen / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
+
+[[models]]
+id = "fireworks-qwen3-8-flash-next-fp8"
+name = "Qwen3.8 Flash Next FP8 — Fireworks"
+model_id = "accounts/fireworks/models/qwen3p8-flash-next-fp8"
+backend = "remote"
+label = "FIREWORKS"
+context_window = 262144
+wire_api = "chat"
+
+[models.info]
+provider = "Qwen / Fireworks"
+
+[models.endpoint]
+url = "https://api.fireworks.ai/inference/v1"
+env_key = "FIREWORKS_API_KEY"
